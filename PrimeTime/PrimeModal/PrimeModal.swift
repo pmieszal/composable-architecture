@@ -1,14 +1,7 @@
-import Foundation
+import ComposableArchitecture
+import SwiftUI
 
-public struct PrimeModalState {
-    public var count: Int
-    public var favoritePrimes: [Int]
-    
-    public init(count: Int, favoritePrimes: [Int]) {
-        self.count = count
-        self.favoritePrimes = favoritePrimes
-    }
-}
+public typealias PrimeModalState = (count: Int, favoritePrimes: [Int])
 
 public enum PrimeModalAction {
     case saveFavoritePrimeTapped
@@ -23,4 +16,41 @@ public func primeModalReducer(state: inout PrimeModalState, action: PrimeModalAc
     case .removeFavoritePrimeTapped:
         state.favoritePrimes.removeAll { $0 == state.count }
     }
+}
+
+public struct IsPrimeModalView: View {
+    @ObservedObject var store: Store<PrimeModalState, PrimeModalAction>
+    
+    public init(store: Store<PrimeModalState, PrimeModalAction>) {
+        self.store = store
+    }
+    
+    public var body: some View {
+        VStack {
+            if isPrime(store.value.count) {
+                Text("\(store.value.count) is prime 🎉")
+                
+                if store.value.favoritePrimes.contains(store.value.count) {
+                    Button("Remove from favorite primes") {
+                        store.send(.removeFavoritePrimeTapped)
+                    }
+                } else {
+                    Button("Add to favorite primes") {
+                        store.send(.saveFavoritePrimeTapped)
+                    }
+                }
+            } else {
+                Text("\(store.value.count) is not prime :(")
+            }
+        }
+    }
+}
+
+func isPrime(_ p: Int) -> Bool {
+    if p <= 1 { return false }
+    if p <= 3 { return true }
+    for i in 2 ... Int(sqrtf(Float(p))) {
+        if p % i == 0 { return false }
+    }
+    return true
 }
