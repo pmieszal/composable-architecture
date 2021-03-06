@@ -8,13 +8,17 @@ public enum PrimeModalAction {
     case removeFavoritePrimeTapped
 }
 
-public func primeModalReducer(state: inout PrimeModalState, action: PrimeModalAction) {
+public func primeModalReducer(state: inout PrimeModalState, action: PrimeModalAction) -> [Effect<PrimeModalAction>] {
     switch action {
     case .saveFavoritePrimeTapped:
         state.favoritePrimes.append(state.count)
         
+        return []
+        
     case .removeFavoritePrimeTapped:
         state.favoritePrimes.removeAll { $0 == state.count }
+        
+        return []
     }
 }
 
@@ -54,3 +58,15 @@ func isPrime(_ p: Int) -> Bool {
     }
     return true
 }
+
+struct IsPrimeModalView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            IsPrimeModalView(
+                store: Store(
+                    initialValue: (count: 2, favoritePrimes: [0]),
+                    reducer: primeModalReducer))
+        }
+    }
+}
+

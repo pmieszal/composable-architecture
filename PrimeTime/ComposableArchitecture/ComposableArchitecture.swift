@@ -1,20 +1,37 @@
 import SwiftUI
 import Combine
 
-public final class Store<Value, Action>: ObservableObject {
-    @Published private(set) public  var value: Value
+public struct Effect<A> {
+    public let run: (@escaping (A) -> Void) -> Void
     
-    private let reducer: (inout Value, Action) -> Void
+    public init(run: @escaping (@escaping (A) -> Void) -> Void) {
+        self.run = run
+    }
+    
+    public func map<B>(_ f: @escaping (A) -> B) -> Effect<B> {
+        return Effect<B> { callback in run { a in callback(f(a)) } }
+    }
+}
+
+public typealias Reducer<Value, Action> = (inout Value, Action) -> [Effect<Action>]
+
+public final class Store<Value, Action>: ObservableObject {
+    @Published private(set) public var value: Value
+    
+    private let reducer: Reducer<Value, Action>
     private var cancellable: Cancellable?
     
     public init(initialValue: Value,
-                reducer: @escaping (inout Value, Action) -> Void) {
+                reducer: @escaping Reducer<Value, Action>) {
         value = initialValue
         self.reducer = reducer
     }
     
     public func send(_ action: Action) {
-        reducer(&value, action)
+        let effects = reducer(&value, action)
+        effects.forEach { (effect) in
+            effect.run(send)
+        }
     }
     
     public func view<LocalValue, LocalAction>(
@@ -26,6 +43,8 @@ public final class Store<Value, Action>: ObservableObject {
             reducer: { localValue, localAction in
                 self.send(toGlobalAction(localAction))
                 localValue = toLocalValue(self.value)
+                
+                return []
             }
         )
         
@@ -37,43 +56,54 @@ public final class Store<Value, Action>: ObservableObject {
     }
 }
 
-func transform<A, B, Action>(
-    _ reducer: (A, Action) -> Void,
-    _ f: (A) -> B
-) -> (B, Action) -> B {
-    fatalError()
-}
-
 public func combine<Value, Action>(
-    _ reducers: (inout Value, Action) -> Void...
-) -> (inout Value, Action) -> Void {
+    _ reducers: Reducer<Value, Action>...
+) -> Reducer<Value, Action> {
     return { value, action in
-        for reducer in reducers {
-            reducer(&value, action)
-        }
+        let effects = reducers.flatMap { $0(&value, action) }
+        
+        return effects
     }
 }
 
 public func pullback<LocalValue, GlobalValue, LocalAction, GlobalAction>(
-    _ reducer: @escaping (inout LocalValue, LocalAction) -> Void,
+    _ reducer: @escaping Reducer<LocalValue, LocalAction>,
     value: WritableKeyPath<GlobalValue, LocalValue>,
     action: WritableKeyPath<GlobalAction, LocalAction?>
-)
-    -> (inout GlobalValue, GlobalAction) -> Void {
+) -> Reducer<GlobalValue, GlobalAction> {
     return { globalValue, globalAction in
-        guard let localAction = globalAction[keyPath: action] else { return }
-        reducer(&globalValue[keyPath: value], localAction)
+        guard let localAction = globalAction[keyPath: action] else {
+            return []
+        }
+        
+        let localEffects = reducer(&globalValue[keyPath: value], localAction)
+        
+        return localEffects.map { localEffect in
+            Effect { callback in
+                localEffect.run { localAction in
+                    var globalAction = globalAction
+                    globalAction[keyPath: action] = localAction
+                    
+                    callback(globalAction)
+                }
+            }
+        }
     }
 }
 
 public func logging<Value, Action>(
-    _ reducer: @escaping (inout Value, Action) -> Void
-) -> (inout Value, Action) -> Void {
+    _ reducer: @escaping Reducer<Value, Action>
+) -> Reducer<Value, Action> {
     return { value, action in
-        reducer(&value, action)
-        print("Action: \(action)")
-        print("State:")
-        dump(value)
-        print("---")
+        let effects = reducer(&value, action)
+        let newValue = value
+        
+        return [Effect { _ in
+            print("Action: \(action)")
+            print("State:")
+            dump(newValue)
+            print("---")
+            return ()
+        }] + effects
     }
 }

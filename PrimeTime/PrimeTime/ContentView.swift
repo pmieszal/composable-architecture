@@ -9,6 +9,8 @@ struct AppState {
     var favoritePrimes = [Int]()
     var activityFeed: [Activity] = []
     var loggedInUser: User?
+    var alertNthPrime: PrimeAlert?
+    var isNthPrimeButtonDisabled = false
     
     struct Activity {
         let timestamp: Date
@@ -30,11 +32,17 @@ struct AppState {
 extension AppState {
     var counterView: CounterViewState {
         get {
-            CounterViewState(count: count, favoritePrimes: favoritePrimes)
+            CounterViewState(
+                alertNthPrime: alertNthPrime,
+                count: count,
+                favoritePrimes: favoritePrimes,
+                isNthPrimeButtonDisabled: isNthPrimeButtonDisabled)
         }
         set {
+            alertNthPrime = newValue.alertNthPrime
             count = newValue.count
             favoritePrimes = newValue.favoritePrimes
+            isNthPrimeButtonDisabled = newValue.isNthPrimeButtonDisabled
         }
     }
 }
@@ -67,17 +75,20 @@ enum AppAction {
     }
 }
 
-let appReducer: (inout AppState, AppAction) -> Void = combine(
+let appReducer: Reducer<AppState, AppAction> = combine(
     pullback(counterViewReducer, value: \.counterView, action: \.counterView),
     pullback(favoritePrimesReducer, value: \.favoritePrimes, action: \.favoritePrimes)
 )
 
 func activityFeed(
-    _ reducer: @escaping (inout AppState, AppAction) -> Void
-) -> (inout AppState, AppAction) -> Void {
+    _ reducer: @escaping Reducer<AppState, AppAction>
+) -> Reducer<AppState, AppAction> {
     return { state, action in
         switch action {
-        case .counterView(.counter):
+        case .counterView(.counter),
+             .favoritePrimes(.loadedFavoritePrimes),
+             .favoritePrimes(.saveButtonTapped),
+             .favoritePrimes(.loadButtonTapped):
             break
         case .counterView(.primeModal(.removeFavoritePrimeTapped)):
             state.activityFeed.append(.init(timestamp: Date(), type: .removedFavoritePrime(state.count)))
@@ -90,7 +101,7 @@ func activityFeed(
             }
         }
         
-        reducer(&state, action)
+        return reducer(&state, action)
     }
 }
 
