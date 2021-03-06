@@ -28,9 +28,12 @@ private func wolframAlpha(query: String) -> Effect<WolframAlphaResult?> {
         URLQueryItem(name: "output", value: "JSON"),
         URLQueryItem(name: "appid", value: wolframAlphaApiKey),
     ]
-        
-    return dataTask(with: components.url(relativeTo: nil)!)
-        .decode(as: WolframAlphaResult.self)
+    
+    return URLSession.shared.dataTaskPublisher(for: components.url!)
+        .map { $0.data }
+        .decode(type: WolframAlphaResult?.self, decoder: JSONDecoder())
+        .replaceError(with: nil)
+        .eraseToEffect()
 }
 
 public func nthPrime(_ n: Int) -> Effect<Int?> {
@@ -46,4 +49,5 @@ public func nthPrime(_ n: Int) -> Effect<Int?> {
             }
             .flatMap(Int.init)
     }
+    .eraseToEffect()
 }

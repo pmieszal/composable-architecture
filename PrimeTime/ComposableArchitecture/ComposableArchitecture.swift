@@ -1,15 +1,21 @@
 import SwiftUI
 import Combine
 
-public struct Effect<A> {
-    public let run: (@escaping (A) -> Void) -> Void
+public struct Effect<Output>: Publisher {
+    public typealias Failure = Never
     
-    public init(run: @escaping (@escaping (A) -> Void) -> Void) {
-        self.run = run
+    let publisher: AnyPublisher<Output, Failure>
+    
+    public func receive<S>(
+        subscriber: S
+    ) where S : Subscriber, Failure == S.Failure, Output == S.Input {
+        publisher.receive(subscriber: subscriber)
     }
-    
-    public func map<B>(_ f: @escaping (A) -> B) -> Effect<B> {
-        return Effect<B> { callback in run { a in callback(f(a)) } }
+}
+
+public extension Publisher where Failure == Never {
+    func eraseToEffect() -> Effect<Output> {
+        return Effect(publisher: eraseToAnyPublisher())
     }
 }
 
@@ -19,7 +25,8 @@ public final class Store<Value, Action>: ObservableObject {
     @Published private(set) public var value: Value
     
     private let reducer: Reducer<Value, Action>
-    private var cancellable: Cancellable?
+    private var viewCancellable: Cancellable?
+    private var effectCancellables: Set<AnyCancellable> = []
     
     public init(initialValue: Value,
                 reducer: @escaping Reducer<Value, Action>) {
@@ -30,7 +37,25 @@ public final class Store<Value, Action>: ObservableObject {
     public func send(_ action: Action) {
         let effects = reducer(&value, action)
         effects.forEach { (effect) in
-            effect.run(send)
+            var effectCancellable: AnyCancellable?
+            var didComplete = false
+            
+            effectCancellable = effect.sink(
+                receiveCompletion: { [weak self] _ in
+                    didComplete = true
+                    guard let effectCancellable = effectCancellable else {
+                        return
+                    }
+                    
+                    self?.effectCancellables.remove(effectCancellable)
+                },
+                receiveValue: send)
+            
+            if didComplete == false, let effectCancellable = effectCancellable {
+                effectCancellables.insert(
+                    effectCancellable
+                )
+            }
         }
     }
     
@@ -48,7 +73,7 @@ public final class Store<Value, Action>: ObservableObject {
             }
         )
         
-        localStore.cancellable = self.$value.sink { [weak localStore] newValue in
+        localStore.viewCancellable = self.$value.sink { [weak localStore] newValue in
             localStore?.value = toLocalValue(newValue)
         }
         
@@ -79,14 +104,13 @@ public func pullback<LocalValue, GlobalValue, LocalAction, GlobalAction>(
         let localEffects = reducer(&globalValue[keyPath: value], localAction)
         
         return localEffects.map { localEffect in
-            Effect { callback in
-                localEffect.run { localAction in
-                    var globalAction = globalAction
-                    globalAction[keyPath: action] = localAction
-                    
-                    callback(globalAction)
-                }
+            localEffect.map { localAction -> GlobalAction in
+                var globalAction = globalAction
+                globalAction[keyPath: action] = localAction
+                
+                return globalAction
             }
+            .eraseToEffect()
         }
     }
 }
@@ -98,12 +122,13 @@ public func logging<Value, Action>(
         let effects = reducer(&value, action)
         let newValue = value
         
-        return [Effect { _ in
-            print("Action: \(action)")
-            print("State:")
-            dump(newValue)
-            print("---")
-            return ()
-        }] + effects
+        return [
+            .fireAndForget {
+                print("Action: \(action)")
+                print("State:")
+                dump(newValue)
+                print("---")
+            }
+        ] + effects
     }
 }

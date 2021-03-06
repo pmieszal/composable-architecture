@@ -1,30 +1,20 @@
-import Foundation
+import Combine
 
-public extension Effect where A == (Data?, URLResponse?, Error?) {
-    func decode<M: Decodable>(as type: M.Type) -> Effect<M?> {
-        map { data, response, error in
-            data.flatMap { try? JSONDecoder().decode(M.self, from: $0) }
+public extension Effect {
+    static func fireAndForget(work: @escaping () -> Void) -> Effect {
+        Deferred { () -> Empty<Output, Never> in
+            work()
+            return Empty(completeImmediately: true)
         }
+        .eraseToEffect()
     }
 }
 
 public extension Effect {
-    func receive(on queue: DispatchQueue) -> Effect {
-        return Effect { callback in
-            run { a in
-                queue.async {
-                    callback(a)
-                }
-            }
+    static func sync(work: @escaping () -> Output) -> Effect {
+        return Deferred {
+            Just(work())
         }
-    }
-}
-
-public func dataTask(with url: URL) -> Effect<(Data?, URLResponse?, Error?)> {
-    return Effect { callback in
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            callback((data, response, error))
-        }
-        .resume()
+        .eraseToEffect()
     }
 }

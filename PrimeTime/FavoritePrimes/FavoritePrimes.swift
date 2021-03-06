@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import SwiftUI
+import Combine
 
 public enum FavoritePrimesAction {
     case deleteFavoritePrinmes(IndexSet)
@@ -24,12 +25,16 @@ public func favoritePrimesReducer(state: inout [Int], action: FavoritePrimesActi
         return [saveEffect(favoritePrimes: state)]
         
     case .loadButtonTapped:
-        return [loadEffect]
+        return [
+            loadEffect
+                .compactMap { $0 }
+                .eraseToEffect()
+        ]
     }
 }
 
 private func saveEffect(favoritePrimes state: [Int]) -> Effect<FavoritePrimesAction> {
-    Effect { _ in
+    Effect.fireAndForget {
         let data = try! JSONEncoder().encode(state)
         let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
         let documentsUrl = URL(fileURLWithPath: documentsPath)
@@ -38,16 +43,16 @@ private func saveEffect(favoritePrimes state: [Int]) -> Effect<FavoritePrimesAct
     }
 }
 
-private let loadEffect = Effect<FavoritePrimesAction> { callback in
+private let loadEffect = Effect<FavoritePrimesAction?>.sync {
     let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
     let documentsUrl = URL(fileURLWithPath: documentsPath)
     let favoritePrimesUrl = documentsUrl.appendingPathComponent("favorite-primes.json")
     guard let data = try? Data(contentsOf: favoritePrimesUrl),
           let favoritePrimes = try? JSONDecoder().decode([Int].self, from: data) else {
-        return
+        return nil
     }
             
-    callback(.loadedFavoritePrimes(favoritePrimes))
+    return .loadedFavoritePrimes(favoritePrimes)
 }
 
 public struct FavoritePrimesView: View {
