@@ -55,7 +55,7 @@ public let counterViewReducer = combine(
     pullback(counterReducer, value: \CounterViewState.counter, action: \CounterViewAction.counter),
     pullback(primeModalReducer, value: \CounterViewState.primeModal, action: \CounterViewAction.primeModal))
 
-public struct CounterViewState {
+public struct CounterViewState: Equatable {
     public var alertNthPrime: PrimeAlert?,
         count: Int,
         favoritePrimes: [Int],
@@ -110,7 +110,7 @@ public enum CounterViewAction {
     }
 }
 
-public struct PrimeAlert: Identifiable {
+public struct PrimeAlert: Identifiable, Equatable {
     let prime: Int
     public var id: Int { prime }
 }

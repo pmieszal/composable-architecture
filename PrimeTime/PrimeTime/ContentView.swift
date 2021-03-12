@@ -94,7 +94,7 @@ func activityFeed(
             state.activityFeed.append(.init(timestamp: Date(), type: .removedFavoritePrime(state.count)))
         case .counterView(.primeModal(.saveFavoritePrimeTapped)):
             state.activityFeed.append(.init(timestamp: Date(), type: .addedFavoritePrime(state.count)))
-        case let .favoritePrimes(.deleteFavoritePrinmes(indexSet)):
+        case let .favoritePrimes(.deleteFavoritePrimes(indexSet)):
             for index in indexSet {
                 let prime = state.favoritePrimes[index]
                 state.activityFeed.append(.init(timestamp: Date(), type: .removedFavoritePrime(prime)))

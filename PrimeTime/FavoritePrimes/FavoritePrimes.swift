@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 public enum FavoritePrimesAction {
-    case deleteFavoritePrinmes(IndexSet)
+    case deleteFavoritePrimes(IndexSet)
     case loadedFavoritePrimes([Int])
     case saveButtonTapped
     case loadButtonTapped
@@ -11,7 +11,7 @@ public enum FavoritePrimesAction {
 
 public func favoritePrimesReducer(state: inout [Int], action: FavoritePrimesAction) -> [Effect<FavoritePrimesAction>] {
     switch action {
-    case let .deleteFavoritePrinmes(indexSet):
+    case let .deleteFavoritePrimes(indexSet):
         for index in indexSet {
             state.remove(at: index)
         }
@@ -68,7 +68,7 @@ public struct FavoritePrimesView: View {
                 Text("\(prime)")
             }
             .onDelete { indexSet in
-                store.send(.deleteFavoritePrinmes(indexSet))
+                store.send(.deleteFavoritePrimes(indexSet))
             }
         }
         .navigationTitle("Favorite Primes")
