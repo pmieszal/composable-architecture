@@ -9,7 +9,11 @@ public enum FavoritePrimesAction: Equatable {
     case loadButtonTapped
 }
 
-public func favoritePrimesReducer(state: inout [Int], action: FavoritePrimesAction) -> [Effect<FavoritePrimesAction>] {
+public func favoritePrimesReducer(
+    state: inout [Int],
+    action: FavoritePrimesAction,
+    environment: FavoritePrimesEnvironment
+    ) -> [Effect<FavoritePrimesAction>] {
     switch action {
     case let .deleteFavoritePrimes(indexSet):
         for index in indexSet {
@@ -23,16 +27,14 @@ public func favoritePrimesReducer(state: inout [Int], action: FavoritePrimesActi
         return []
     case .saveButtonTapped:
         return [
-            Current
-                .fileClient
+            environment
                 .save("favorites-primes.json", try! JSONEncoder().encode(state))
                 .fireAndForget()
         ]
         
     case .loadButtonTapped:
         return [
-            Current
-                .fileClient
+            environment
                 .load("favorites-primes.json")
                 .compactMap { $0 }
                 .decode(type: [Int].self, decoder: JSONDecoder())
@@ -43,12 +45,12 @@ public func favoritePrimesReducer(state: inout [Int], action: FavoritePrimesActi
     }
 }
 
-struct FileClient {
+public struct FileClient {
     var load: (String) -> Effect<Data?>
     var save: (String, Data) -> Effect<Never>
 }
 
-extension FileClient {
+public extension FileClient {
     static let live = FileClient(
         load: { filename -> Effect<Data?> in
             Effect.sync {
@@ -68,28 +70,18 @@ extension FileClient {
         })
 }
 
-struct FavoritePrimesEnvironment {
-    var fileClient: FileClient
-}
-
-extension FavoritePrimesEnvironment {
-    static let live = FavoritePrimesEnvironment(fileClient: .live)
-}
+public typealias FavoritePrimesEnvironment = FileClient
 
 #if DEBUG
-extension FavoritePrimesEnvironment {
-    static let mock = FavoritePrimesEnvironment(
-        fileClient: FileClient(
-            load: { _ in Effect<Data?>.sync {
-                try! JSONEncoder().encode([2, 31])
-            } },
-            save: { _, _ in .fireAndForget {} }
-        )
+extension FileClient {
+    static let mock = FileClient(
+        load: { _ in Effect<Data?>.sync {
+            try! JSONEncoder().encode([2, 31])
+        } },
+        save: { _, _ in .fireAndForget {} }
     )
 }
 #endif
-
-var Current = FavoritePrimesEnvironment.live
 
 public struct FavoritePrimesView: View {
     @ObservedObject var store: Store<[Int], FavoritePrimesAction>
@@ -126,7 +118,8 @@ struct FavoritePrimesView_Previews: PreviewProvider {
             FavoritePrimesView(
                 store: Store(
                     initialValue: [2, 3, 5],
-                    reducer: favoritePrimesReducer))
+                    reducer: favoritePrimesReducer,
+                    environment: .live))
         }
     }
 }

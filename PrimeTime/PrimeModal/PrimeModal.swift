@@ -8,7 +8,11 @@ public enum PrimeModalAction: Equatable {
     case removeFavoritePrimeTapped
 }
 
-public func primeModalReducer(state: inout PrimeModalState, action: PrimeModalAction) -> [Effect<PrimeModalAction>] {
+public func primeModalReducer(
+    state: inout PrimeModalState,
+    action: PrimeModalAction,
+    environment: Void
+) -> [Effect<PrimeModalAction>] {
     switch action {
     case .saveFavoritePrimeTapped:
         state.favoritePrimes.append(state.count)
@@ -65,7 +69,8 @@ struct IsPrimeModalView_Previews: PreviewProvider {
             IsPrimeModalView(
                 store: Store(
                     initialValue: (count: 2, favoritePrimes: [0]),
-                    reducer: primeModalReducer))
+                    reducer: primeModalReducer,
+                    environment: ()))
         }
     }
 }

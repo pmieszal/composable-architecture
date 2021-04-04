@@ -78,15 +78,30 @@ enum AppAction {
     }
 }
 
-let appReducer: Reducer<AppState, AppAction> = combine(
-    pullback(counterViewReducer, value: \.counterView, action: \.counterView),
-    pullback(favoritePrimesReducer, value: \.favoritePrimes, action: \.favoritePrimes)
+typealias AppEnvironment = (
+    fileClient: FileClient,
+    nthPrime: (Int) -> Effect<Int?>
+)
+
+let appReducer: Reducer<AppState, AppAction, AppEnvironment> = combine(
+    pullback(
+        counterViewReducer,
+        value: \.counterView,
+        action: \.counterView,
+        environment: { $0.nthPrime }
+    ),
+    pullback(
+        favoritePrimesReducer,
+        value: \.favoritePrimes,
+        action: \.favoritePrimes,
+        environment: { $0.fileClient }
+    )
 )
 
 func activityFeed(
-    _ reducer: @escaping Reducer<AppState, AppAction>
-) -> Reducer<AppState, AppAction> {
-    return { state, action in
+    _ reducer: @escaping Reducer<AppState, AppAction, AppEnvironment>
+) -> Reducer<AppState, AppAction, AppEnvironment> {
+    return { state, action, environment in
         switch action {
         case .counterView(.counter),
              .favoritePrimes(.loadedFavoritePrimes),
@@ -104,7 +119,7 @@ func activityFeed(
             }
         }
         
-        return reducer(&state, action)
+        return reducer(&state, action, environment)
     }
 }
 
@@ -144,6 +159,10 @@ struct ContentView_Previews: PreviewProvider {
                     compose(
                         logging, activityFeed
                     )
+                ),
+                environment: AppEnvironment(
+                    fileClient: .live,
+                    nthPrime: nthPrime
                 )
             )
         )

@@ -19,11 +19,14 @@ public typealias CounterState = (
     isNthPrimeButtonDisabled: Bool,
     isPrimeModalShown: Bool)
 
-public func counterReducer(state: inout CounterState, action: CounterAction) -> [Effect<CounterAction>] {
+public func counterReducer(
+    state: inout CounterState,
+    action: CounterAction,
+    environment: CounterEnvironment
+) -> [Effect<CounterAction>] {
     switch action {
     case .decrTapped:
         state.count -= 1
-        let count = state.count
         return []
 
     case .incrTapped:
@@ -33,7 +36,7 @@ public func counterReducer(state: inout CounterState, action: CounterAction) -> 
     case .nthPrimeButtonTapped:
         state.isNthPrimeButtonDisabled = true
         return [
-            Current.nthPrime(state.count)
+            environment(state.count)
                 .map(CounterAction.nthPrimeResponse)
                 .receive(on: DispatchQueue.main)
                 .eraseToEffect(),
@@ -59,20 +62,22 @@ public func counterReducer(state: inout CounterState, action: CounterAction) -> 
     }
 }
 
-struct CounterEnvironment {
-    var nthPrime: (Int) -> Effect<Int?>
-}
+public typealias CounterEnvironment = (Int) -> Effect<Int?>
 
-extension CounterEnvironment {
-    static let live = CounterEnvironment(nthPrime: Counter.nthPrime)
-    static let mock = CounterEnvironment(nthPrime: { _ in .sync { 17 }})
-}
-
-var Current = CounterEnvironment.live
-
-public let counterViewReducer = combine(
-    pullback(counterReducer, value: \CounterViewState.counter, action: \CounterViewAction.counter),
-    pullback(primeModalReducer, value: \.primeModal, action: \.primeModal))
+public let counterViewReducer: Reducer<CounterViewState, CounterViewAction, CounterEnvironment> = combine(
+    pullback(
+        counterReducer,
+        value: \CounterViewState.counter,
+        action: \CounterViewAction.counter,
+        environment: { $0 }
+    ),
+    pullback(
+        primeModalReducer,
+        value: \.primeModal,
+        action: \.primeModal,
+        environment: { _ in return }
+    )
+)
 
 public struct PrimeAlert: Equatable, Identifiable {
     let prime: Int
@@ -193,7 +198,8 @@ struct CounterView_Previews: PreviewProvider {
                         count: 2,
                         favoritePrimes: [],
                         isNthPrimeButtonDisabled: false),
-                    reducer: counterViewReducer))
+                    reducer: counterViewReducer,
+                    environment: nthPrime))
         }
     }
 }

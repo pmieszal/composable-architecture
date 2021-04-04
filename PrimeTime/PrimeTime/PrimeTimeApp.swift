@@ -14,15 +14,13 @@ struct PrimeTimeApp: App {
                         compose(
                             logging, activityFeed
                         )
+                    ),
+                    environment: AppEnvironment(
+                        fileClient: .live,
+                        nthPrime: nthPrime
                     )
                 )
             )
-        }
-    }
-    
-    init() {
-        if ProcessInfo.processInfo.environment["UI_TESTS"] == "1" {
-          Counter.Current.nthPrime = { _ in .sync { 3 } }
         }
     }
 }
