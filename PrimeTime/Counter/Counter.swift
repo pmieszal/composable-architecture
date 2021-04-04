@@ -23,6 +23,7 @@ public func counterReducer(state: inout CounterState, action: CounterAction) -> 
     switch action {
     case .decrTapped:
         state.count -= 1
+        let count = state.count
         return []
 
     case .incrTapped:
@@ -64,13 +65,10 @@ struct CounterEnvironment {
 
 extension CounterEnvironment {
     static let live = CounterEnvironment(nthPrime: Counter.nthPrime)
+    static let mock = CounterEnvironment(nthPrime: { _ in .sync { 17 }})
 }
 
 var Current = CounterEnvironment.live
-
-extension CounterEnvironment {
-    static let mock = CounterEnvironment(nthPrime: { _ in .sync { 17 }})
-}
 
 public let counterViewReducer = combine(
     pullback(counterReducer, value: \CounterViewState.counter, action: \CounterViewAction.counter),
