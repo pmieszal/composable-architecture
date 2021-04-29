@@ -2,65 +2,56 @@ import XCTest
 @testable import FavoritePrimes
 
 class FavoritePrimesTests: XCTestCase {
-    var environment: FavoritePrimesEnvironment!
-    
+    //  var environment:
+
     override func setUp() {
         super.setUp()
-        
-        environment = .mock
+//    Current = .mock
+
+//    self.environment = (
+//    )
     }
-    
-    func testDeleteFavoritePrimes() throws {
+
+    func testDeleteFavoritePrimes() {
         var state = [2, 3, 5, 7]
-        let effects = favoritePrimesReducer(
-            state: &state,
-            action: FavoritePrimesAction.deleteFavoritePrimes([2]),
-            environment: environment)
-        
+        let effects = favoritePrimesReducer(state: &state, action: .deleteFavoritePrimes([2]), environment: .mock)
+
         XCTAssertEqual(state, [2, 3, 7])
         XCTAssert(effects.isEmpty)
     }
-    
-    func testSaveButtonTapped() throws {
+
+    func testSaveButtonTapped() {
         var didSave = false
-        
-        environment.save = { _, _ in
+        var environment = FileClient.mock
+        environment.save = { _, data in
             .fireAndForget {
                 didSave = true
             }
         }
-        
+
         var state = [2, 3, 5, 7]
-        let effects = favoritePrimesReducer(
-            state: &state,
-            action: FavoritePrimesAction.saveButtonTapped,
-            environment: environment)
-        
+        let effects = favoritePrimesReducer(state: &state, action: .saveButtonTapped, environment: environment)
+
         XCTAssertEqual(state, [2, 3, 5, 7])
         XCTAssertEqual(effects.count, 1)
-        
+
         effects[0].sink { _ in XCTFail() }
-        
+
         XCTAssert(didSave)
     }
-    
-    func testLoadFavoritePrimesFlow() throws {
-        environment.load = { _ in
-            .sync { try! JSONEncoder().encode([2, 31]) }
-        }
-        
+
+    func testLoadFavoritePrimesFlow() {
+        var environment = FileClient.mock
+        environment.load = { _ in .sync { try! JSONEncoder().encode([2, 31]) } }
+
         var state = [2, 3, 5, 7]
-        var effects = favoritePrimesReducer(
-            state: &state,
-            action: FavoritePrimesAction.loadButtonTapped,
-            environment: environment)
-        
+        var effects = favoritePrimesReducer(state: &state, action: .loadButtonTapped, environment: environment)
+
         XCTAssertEqual(state, [2, 3, 5, 7])
         XCTAssertEqual(effects.count, 1)
-        
+
         var nextAction: FavoritePrimesAction!
         let receivedCompletion = expectation(description: "receivedCompletion")
-        
         effects[0].sink(
             receiveCompletion: { _ in
                 receivedCompletion.fulfill()
@@ -69,14 +60,10 @@ class FavoritePrimesTests: XCTestCase {
                 XCTAssertEqual(action, .loadedFavoritePrimes([2, 31]))
                 nextAction = action
             })
-        
         wait(for: [receivedCompletion], timeout: 0)
-        
-        effects = favoritePrimesReducer(
-            state: &state,
-            action: nextAction,
-            environment: environment)
-        
+
+        effects = favoritePrimesReducer(state: &state, action: nextAction, environment: environment)
+
         XCTAssertEqual(state, [2, 31])
         XCTAssert(effects.isEmpty)
     }

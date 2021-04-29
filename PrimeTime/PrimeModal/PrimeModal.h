@@ -2,7 +2,8 @@
 //  PrimeModal.h
 //  PrimeModal
 //
-//  Created by Patryk Mieszała on 03/03/2021.
+//  Created by Stephen Celis on 9/8/19.
+//  Copyright © 2019 Point-Free. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>

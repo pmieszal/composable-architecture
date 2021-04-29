@@ -8,47 +8,42 @@ public enum PrimeModalAction: Equatable {
     case removeFavoritePrimeTapped
 }
 
-public func primeModalReducer(
-    state: inout PrimeModalState,
-    action: PrimeModalAction,
-    environment: Void
-) -> [Effect<PrimeModalAction>] {
+public func primeModalReducer(state: inout PrimeModalState,
+                              action: PrimeModalAction,
+                              environment: ()) -> [Effect<PrimeModalAction>] {
     switch action {
+    case .removeFavoritePrimeTapped:
+        state.favoritePrimes.removeAll(where: { $0 == state.count })
+        return []
+
     case .saveFavoritePrimeTapped:
         state.favoritePrimes.append(state.count)
-        
-        return []
-        
-    case .removeFavoritePrimeTapped:
-        state.favoritePrimes.removeAll { $0 == state.count }
-        
         return []
     }
 }
 
 public struct IsPrimeModalView: View {
     @ObservedObject var store: Store<PrimeModalState, PrimeModalAction>
-    
+
     public init(store: Store<PrimeModalState, PrimeModalAction>) {
         self.store = store
     }
-    
+
     public var body: some View {
         VStack {
-            if isPrime(store.value.count) {
-                Text("\(store.value.count) is prime 🎉")
-                
-                if store.value.favoritePrimes.contains(store.value.count) {
+            if isPrime(self.store.value.count) {
+                Text("\(self.store.value.count) is prime 🎉")
+                if self.store.value.favoritePrimes.contains(self.store.value.count) {
                     Button("Remove from favorite primes") {
-                        store.send(.removeFavoritePrimeTapped)
+                        self.store.send(.removeFavoritePrimeTapped)
                     }
                 } else {
-                    Button("Add to favorite primes") {
-                        store.send(.saveFavoritePrimeTapped)
+                    Button("Save to favorite primes") {
+                        self.store.send(.saveFavoritePrimeTapped)
                     }
                 }
             } else {
-                Text("\(store.value.count) is not prime :(")
+                Text("\(self.store.value.count) is not prime :(")
             }
         }
     }
@@ -62,16 +57,3 @@ func isPrime(_ p: Int) -> Bool {
     }
     return true
 }
-
-struct IsPrimeModalView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationView {
-            IsPrimeModalView(
-                store: Store(
-                    initialValue: (count: 2, favoritePrimes: [0]),
-                    reducer: primeModalReducer,
-                    environment: ()))
-        }
-    }
-}
-
